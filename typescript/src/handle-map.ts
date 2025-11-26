@@ -10,11 +10,15 @@ export const defaultUniffiHandle = BigInt("0");
 
 export class UniffiHandleMap<T> {
   private map = new Map<UniffiHandle, T>();
-  private currentHandle: UniffiHandle = defaultUniffiHandle;
+  // As of uniffi 0.30, foreign handles must always have the lowest bit set
+  // This is achieved here with an odd number sequence.
+  private currentHandle: UniffiHandle = BigInt("1");
 
   insert(value: T): UniffiHandle {
-    this.map.set(this.currentHandle, value);
-    return this.currentHandle++;
+    const handle = this.currentHandle;
+    this.currentHandle += BigInt("2");
+    this.map.set(handle, value);
+    return handle;
   }
 
   get(handle: UniffiHandle): T {
