@@ -397,8 +397,19 @@ impl<'a> ComponentTemplate<'a> {
         let args: Vec<_> = cb.callback().arguments_no_return().collect();
         let rust_args_decl: TokenStream = self.arg_list_decl(&args, |t| self.ffi_type_rust(t));
 
+        // Filter out Reference/MutReference - these are OUT parameters for Rust, not JS args
+        let args_for_js: Vec<_> = args
+            .iter()
+            .filter(|arg| {
+                !matches!(
+                    arg.type_(),
+                    FfiType::Reference(_) | FfiType::MutReference(_)
+                )
+            })
+            .copied()
+            .collect();
         let args_into_js: TokenStream =
-            self.arg_list_convert(&args, |ident, _| self.convert_to_js(ident));
+            self.arg_list_convert(&args_for_js, |ident, _| self.convert_to_js(ident));
 
         let return_let = if_or_default(
             cb.callback().has_rust_call_status_arg() || cb.return_type().is_some(),
@@ -594,7 +605,16 @@ impl<'a> ComponentTemplate<'a> {
         callback_fn_ident: &Ident,
         ffi_func: &FfiCallbackFunction,
     ) -> TokenStream {
-        let args_no_return: Vec<_> = ffi_func.arguments_no_return().collect();
+        // Filter out Reference/MutReference - these are OUT parameters for Rust, not JS args
+        let args_no_return: Vec<_> = ffi_func
+            .arguments_no_return()
+            .filter(|arg| {
+                !matches!(
+                    arg.type_(),
+                    FfiType::Reference(_) | FfiType::MutReference(_)
+                )
+            })
+            .collect();
         let args = self.arg_list_decl(&args_no_return, |t| self.ffi_type_foreign(t));
         let return_tokens = if_then_map(ffi_func.returns_result(), || {
             let return_type = self.ffi_type_uniffi_result(ffi_func.arg_return_type().as_ref());
